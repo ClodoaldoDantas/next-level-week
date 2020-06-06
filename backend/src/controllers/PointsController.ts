@@ -17,7 +17,14 @@ class ProductController {
       .distinct()
       .select("points.*");
 
-    return res.json(points);
+    const serializedPoints = points.map((point) => {
+      return {
+        ...point,
+        image_url: `http://192.168.0.2:3333/uploads/${point.image}`,
+      };
+    });
+
+    return res.json(serializedPoints);
   }
 
   async show(req: Request, res: Response) {
@@ -31,7 +38,12 @@ class ProductController {
       .where("point_items.point_id", id)
       .select("items.title");
 
-    return res.json({ point, items });
+    const serializedPoint = {
+      ...point,
+      image_url: `http://192.168.0.2:3333/uploads/${point.image}`,
+    };
+
+    return res.json({ point: serializedPoint, items });
   }
 
   async create(req: Request, res: Response) {
@@ -49,8 +61,7 @@ class ProductController {
     const trx = await knex.transaction();
 
     const point = {
-      image:
-        "https://images.unsplash.com/photo-1542838132-92c53300491e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60",
+      image: req.file.filename,
       name,
       email,
       whatsapp,
@@ -63,12 +74,15 @@ class ProductController {
     const insertedIds = await trx("points").insert(point);
 
     const point_id = insertedIds[0];
-    const pointItems = items.map((item_id: number) => {
-      return {
-        item_id,
-        point_id,
-      };
-    });
+    const pointItems = items
+      .split(",")
+      .map((item: string) => Number(item.trim()))
+      .map((item_id: number) => {
+        return {
+          item_id,
+          point_id,
+        };
+      });
 
     await trx("point_items").insert(pointItems);
     await trx.commit();
